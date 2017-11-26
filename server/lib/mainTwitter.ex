@@ -3,9 +3,9 @@ defmodule MainTwitter do
     def main(args \\ []) do
         {_,inputParsedVal,_} = OptionParser.parse(args, switches: [ help: :boolean ],aliases: [ h: :help ])
 
-        numClients = String.to_integer Enum.at(inputParsedVal, 0)
+        serverIP = Enum.at(inputParsedVal, 0)
 
-        pidServer = spawn(MainTwitter, :startTwitterServer , [self()])
+        pidServer = spawn(MainTwitter, :startTwitterServer , [self(), serverIP])
         #pidClientSimulator = spawn(MainTwitter, :startTwitterClientSimulator , [self()])
         send pidServer, {:startServer}
         #send pidClientSimulator, {:startClientSimulator, numClients}
@@ -17,11 +17,11 @@ defmodule MainTwitter do
         end                                   
     end
 
-    def startTwitterServer(sender) do        
+    def startTwitterServer(sender, serverIP) do        
         receive do
-            {:startServer} -> TwitterServerSupervisor.start_link()                       
+            {:startServer} -> TwitterServerSupervisor.start_link(serverIP)                       
                 #startTwitterServer(sender)                
-                :timer.sleep(10000)
+                :timer.sleep(50000)
                 send sender, {:serverTerminate} 
             {:terminateServer} -> send sender, {:serverTerminate}                                     
         end    

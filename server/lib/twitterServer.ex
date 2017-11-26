@@ -1,9 +1,20 @@
 defmodule TwitterServer do
 
-    def start_link() do
+    def start_distributed(serverName) do
+        IO.puts "Starting Distributed Server Node"
+        unless Node.alive?() do     
+        {:ok, _} = Node.start(serverName)
+        end
+        Node.set_cookie(:"twitter")
+    end
+
+    def start_link(serverIP) do
         currentNodeName= "twitterServer"
-        GenServer.start_link(__MODULE__,[],name: String.to_atom(currentNodeName))
-    end  
+        fqserverName = currentNodeName <> "@" <> serverIP
+        start_distributed(:"#{fqserverName}")        
+        n = {:name, {:global, String.to_atom(currentNodeName)}}        
+        GenServer.start_link(__MODULE__,[], [n])
+    end    
 
     def init([]) do  
         IO.puts "Twitter Server Started"             
