@@ -14,20 +14,23 @@ defmodule MainTwitter do
             IO.puts "Twitter is getting shutdown"
             { :clientTerminate } ->
             IO.puts "Twitter is getting shutdown"
-        end                             
+        end                                   
     end
 
     def startTwitterServer(sender) do        
         receive do
             {:startServer} -> TwitterServerSupervisor.start_link()                       
-                startTwitterServer(sender)
+                #startTwitterServer(sender)                
+                :timer.sleep(10000)
+                send sender, {:serverTerminate} 
             {:terminateServer} -> send sender, {:serverTerminate}                                     
         end    
     end
 
     def startTwitterClientSimulator(sender) do        
         receive do
-            {:startClientSimulator,  noClients} -> TwitterClientSupervisor.start_link(noClients)                       
+            {:startClientSimulator,  noClients} -> TwitterClientSupervisor.start_link(noClients)   
+                :timer.sleep(10000)                    
                 startTwitterClientSimulator(sender)
             {:terminateClient} -> send sender, {:clientTerminate}
         end    

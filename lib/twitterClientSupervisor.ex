@@ -7,11 +7,8 @@ defmodule TwitterClientSupervisor do
 
     def init([noClients]) do
         IO.puts("Twitter Client Supervisor Started")        
-        children = createChildren(noClients)
+        children = [worker(TwitterClientSimulator, [noClients])]
         IO.puts "Twitter Clients created"          
         supervise(children, strategy: :one_for_one)          
-    end 
-
-    def createChildren(noClients) do    
-    end
+    end   
 end
