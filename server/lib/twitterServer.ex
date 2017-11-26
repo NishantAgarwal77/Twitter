@@ -35,7 +35,7 @@ defmodule TwitterServer do
                     TwitterServerProcess.start_link(serverNode)
                     {:ok, serverNode}
             end
-        {:reply , {status, message } ,state}
+        {:reply , {status , message } ,state}
     end
        
     def handle_call({:authenticateUser, userName, password}, _from, state) do       

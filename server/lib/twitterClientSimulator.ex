@@ -12,7 +12,13 @@ defmodule TwitterClientSimulator do
         userMap = Enum.reduce clientIds, %{}, fn x, acc -> Map.put(acc, x, RandomGenerator.getPassword()) end        
         Enum.each userMap, fn {userName, password} -> TwitterClient.register_client(userName, password) end 
         Enum.each userMap, fn {userName, password} -> TwitterClient.login_client(userName, password) end        
+        TwitterClient.setFollower(Enum.random(clientIds), Enum.random(clientIds))
+        TwitterClient.setFollower(Enum.random(clientIds), Enum.random(clientIds))
+        TwitterClient.setFollower(Enum.random(clientIds), Enum.random(clientIds))
+        TwitterClient.setFollower(Enum.random(clientIds), Enum.random(clientIds))
+        TwitterClient.setFollower(Enum.random(clientIds), Enum.random(clientIds))
+        TwitterClient.setFollower(Enum.random(clientIds), Enum.random(clientIds))
         state = %{"clients" => userMap}
         {:ok, state}
-    end
+    end    
 end

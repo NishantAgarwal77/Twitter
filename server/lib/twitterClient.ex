@@ -38,4 +38,15 @@ defmodule TwitterClient do
         IO.inspect state
         {:noreply, state}
     end
+
+    def setFollower(followedBy, followedTo) do
+        client = "client_"<>followedTo
+        GenServer.cast(String.to_atom(client), {:saveFollowers, followedBy, followedTo})               
+    end
+
+    def handle_cast({:saveFollowers, followedBy, followedTo}, state) do
+        serverProcess = Map.get(state, "serverProcess")
+        GenServer.cast(String.to_atom(serverProcess), {:setFollowers, followedBy, followedTo})               
+        {:noreply, state}
+    end
 end

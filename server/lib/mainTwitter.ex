@@ -6,9 +6,9 @@ defmodule MainTwitter do
         numClients = String.to_integer Enum.at(inputParsedVal, 0)
 
         pidServer = spawn(MainTwitter, :startTwitterServer , [self()])
-        pidClientSimulator = spawn(MainTwitter, :startTwitterClientSimulator , [self()])
+        #pidClientSimulator = spawn(MainTwitter, :startTwitterClientSimulator , [self()])
         send pidServer, {:startServer}
-        send pidClientSimulator, {:startClientSimulator, numClients}
+        #send pidClientSimulator, {:startClientSimulator, numClients}
         receive do
             { :serverTerminate } ->
             IO.puts "Twitter is getting shutdown"
