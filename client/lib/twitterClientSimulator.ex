@@ -10,9 +10,9 @@ defmodule TwitterClientSimulator do
         clientIds = Enum.map(1..numClients, fn(_x) -> RandomGenerator.getClientId() end)        
         Enum.each(clientIds, fn(x) -> TwitterClient.start_link(x,clientIp,serverIp) end)              
         
-        #userMap = Enum.reduce clientIds, %{}, fn x, acc -> Map.put(acc, x, RandomGenerator.getPassword()) end        
-        #Enum.each userMap, fn {userName, password} -> TwitterClient.register_client(userName, password) end 
-        #Enum.each userMap, fn {userName, password} -> TwitterClient.login_client(userName, password) end        
+        userMap = Enum.reduce clientIds, %{}, fn x, acc -> Map.put(acc, x, RandomGenerator.getPassword()) end        
+        Enum.each userMap, fn {userName, password} -> TwitterClient.register_client(userName, password) end 
+        Enum.each userMap, fn {userName, password} -> TwitterClient.login_client(userName, password) end        
         #TwitterClient.setFollower(Enum.random(clientIds), Enum.random(clientIds))
         #TwitterClient.setFollower(Enum.random(clientIds), Enum.random(clientIds))
         #TwitterClient.setFollower(Enum.random(clientIds), Enum.random(clientIds))

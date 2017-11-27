@@ -30,27 +30,29 @@ defmodule TwitterClient do
 
     def init([clientId]) do  
         IO.puts "Twitter Client created: "<> clientId
-        state = %{"serverProcess" => ""}
+        state = %{"nodeName" => clientId}
         {:ok, state}
     end
 
     def register_client(username,password) do
-        {status, message} = GenServer.call(String.to_atom("twitterServer"),{:registerUser, username, password})  
+        :global.sync()
+        {status, message} = GenServer.call(:global.whereis_name(:"twitterServer"),{:registerUser, username, password})  
         case status do
             :ok -> IO.puts "Registration Successful"
-                client = "client_"<>username
-                GenServer.cast(String.to_atom(client),{:saveServerProcess, message})
+                #client = username
+                #GenServer.cast(String.to_atom(client),{:saveServerProcess, message})
             :failed -> IO.inspect message
         end
     end
 
     def login_client(username,password) do  
         #IO.puts username<>" "<>password
-        {status, message} = GenServer.call(String.to_atom("twitterServer"),{:authenticateUser, username, password})  
+        :global.sync()
+        {status, message} = GenServer.call(:global.whereis_name(:"twitterServer"),{:authenticateUser, username, password})  
         case status do
             :ok -> IO.puts "Login Successful"
-                client = "client_"<>username
-                GenServer.cast(String.to_atom(client),{:saveServerProcess, message})
+                #client = username
+                #GenServer.cast(String.to_atom(username),{:saveServerProcess, message})
             :failed -> IO.inspect message
         end
     end
