@@ -49,7 +49,7 @@ defmodule TwitterServer do
         {:reply , {status , message } ,state}
     end
        
-    def handle_call({:authenticateUser, userName, password}, _from, state) do       
+    def handle_call({:authenticateUser, userName, password}, _from, state) do
         {status, message} = case Map.has_key?(Kernel.get_in(state, ["userTable"]), userName) do
             :true -> 
                 case Kernel.get_in(state, ["userTable", userName]) == password do
