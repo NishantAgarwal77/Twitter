@@ -1,0 +1,10 @@
+{application,client,
+             [{applications,[kernel,stdlib,elixir,logger]},
+              {description,"client"},
+              {modules,['Elixir.MainClient','Elixir.RandomGenerator',
+                        'Elixir.TwitterClient',
+                        'Elixir.TwitterClientSimulator',
+                        'Elixir.TwitterClientSupervisor']},
+              {registered,[]},
+              {vsn,"0.1.0"},
+              {extra_applications,[logger]}]}.

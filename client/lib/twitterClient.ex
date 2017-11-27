@@ -30,45 +30,60 @@ defmodule TwitterClient do
 
     def init([clientId]) do  
         IO.puts "Twitter Client created: "<> clientId
-        state = %{"serverProcess" => ""}
+        state = %{"nodeName" => clientId}
         {:ok, state}
     end
 
     def register_client(username,password) do
-        {status, message} = GenServer.call(String.to_atom("twitterServer"),{:registerUser, username, password})  
+        :global.sync()
+        {status, message} = GenServer.call(:global.whereis_name(:"twitterServer"),{:registerUser, username, password})  
         case status do
             :ok -> IO.puts "Registration Successful"
-                client = "client_"<>username
-                GenServer.cast(String.to_atom(client),{:saveServerProcess, message})
+                #client = username
+                #GenServer.cast(String.to_atom(client),{:saveServerProcess, message})
             :failed -> IO.inspect message
         end
     end
 
     def login_client(username,password) do  
         #IO.puts username<>" "<>password
-        {status, message} = GenServer.call(String.to_atom("twitterServer"),{:authenticateUser, username, password})  
+        :global.sync()
+        {status, message} = GenServer.call(:global.whereis_name(:"twitterServer"),{:authenticateUser, username, password})  
         case status do
             :ok -> IO.puts "Login Successful"
-                client = "client_"<>username
-                GenServer.cast(String.to_atom(client),{:saveServerProcess, message})
+                #client = username
+                #GenServer.cast(String.to_atom(username),{:saveServerProcess, message})
             :failed -> IO.inspect message
         end
     end
+   
+    def setFollower(followedBy, followedTo) do        
+        :global.sync()        
+        GenServer.cast(:global.whereis_name(:"twitterServer"), {:setFollowers, followedBy, followedTo})               
+    end   
 
-    def handle_cast({:saveServerProcess, serverProcess}, state) do             
-        state = Map.put(state, "serverProcess", serverProcess)
-        IO.inspect state
-        {:noreply, state}
+    def postTweet(clientId) do
+        tweetContent = RandomGenerator.getRandomTweet()
+        GenServer.cast(:global.whereis_name(:"twitterServer"), {:postTweet, clientId, tweetContent})               
     end
 
-    def setFollower(followedBy, followedTo) do
-        client = "client_"<>followedTo
-        GenServer.cast(String.to_atom(client), {:saveFollowers, followedBy, followedTo})               
+    def postTweetWithHashTags(clientId, hashtags) do        
+        tweetContent = RandomGenerator.getRandomTweet()<> String.trim(Enum.reduce(hashtags,"",fn(x,acc)->acc<>"#"<>x<>" " end))
+        IO.inspect tweetContent
+        tweetId = Integer.to_string(:os.system_time(:millisecond))<> "_" <> clientId
+        GenServer.cast(:global.whereis_name(:"twitterServer"), {:postTweet, clientId, tweetId, tweetContent})               
     end
 
-    def handle_cast({:saveFollowers, followedBy, followedTo}, state) do
-        serverProcess = Map.get(state, "serverProcess")
-        GenServer.cast(String.to_atom(serverProcess), {:setFollowers, followedBy, followedTo})               
-        {:noreply, state}
+    def postTweetWithMentions(clientId, mentions) do        
+        tweetContent = RandomGenerator.getRandomTweet()<> String.trim(Enum.reduce(mentions,"",fn(x,acc)->acc<>"@"<>x<>" " end))
+        tweetId = Integer.to_string(:os.system_time(:millisecond))<> "_" <> clientId
+        GenServer.cast(:global.whereis_name(:"twitterServer"), {:postTweet, clientId, tweetId, tweetContent})               
     end
+
+    def postTweetWithMentionsAndTags(clientId, mentions, hashtags) do        
+        tweetContent = RandomGenerator.getRandomTweet()<> String.trim(Enum.reduce(mentions,"",fn(x,acc)->acc<>"@"<>x<>" " end)) <> String.trim(Enum.reduce(hashtags,"",fn(x,acc)->acc<>"#"<>x<>" " end))
+        tweetId = Integer.to_string(:os.system_time(:millisecond))<> "_" <> clientId
+        GenServer.cast(:global.whereis_name(:"twitterServer"), {:postTweet, clientId, tweetId, tweetContent})               
+    end
+
 end
