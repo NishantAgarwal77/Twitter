@@ -25,14 +25,5 @@ defmodule MainTwitter do
                 send sender, {:serverTerminate} 
             {:terminateServer} -> send sender, {:serverTerminate}                                     
         end    
-    end
-
-    def startTwitterClientSimulator(sender) do        
-        receive do
-            {:startClientSimulator,  noClients} -> TwitterClientSupervisor.start_link(noClients)   
-                :timer.sleep(10000)                    
-                startTwitterClientSimulator(sender)
-            {:terminateClient} -> send sender, {:clientTerminate}
-        end    
-    end
+    end    
 end

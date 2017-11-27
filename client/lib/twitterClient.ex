@@ -56,21 +56,34 @@ defmodule TwitterClient do
             :failed -> IO.inspect message
         end
     end
+   
+    def setFollower(followedBy, followedTo) do        
+        :global.sync()        
+        GenServer.cast(:global.whereis_name(:"twitterServer"), {:setFollowers, followedBy, followedTo})               
+    end   
 
-    def handle_cast({:saveServerProcess, serverProcess}, state) do             
-        state = Map.put(state, "serverProcess", serverProcess)
-        IO.inspect state
-        {:noreply, state}
+    def postTweet(clientId) do
+        tweetContent = RandomGenerator.getRandomTweet()
+        GenServer.cast(:global.whereis_name(:"twitterServer"), {:postTweet, clientId, tweetContent})               
     end
 
-    def setFollower(followedBy, followedTo) do
-        client = "client_"<>followedTo
-        GenServer.cast(String.to_atom(client), {:saveFollowers, followedBy, followedTo})               
+    def postTweetWithHashTags(clientId, hashtags) do        
+        tweetContent = RandomGenerator.getRandomTweet()<> String.trim(Enum.reduce(hashtags,"",fn(x,acc)->acc<>"#"<>x<>" " end))
+        IO.inspect tweetContent
+        tweetId = Integer.to_string(:os.system_time(:millisecond))<> "_" <> clientId
+        GenServer.cast(:global.whereis_name(:"twitterServer"), {:postTweet, clientId, tweetId, tweetContent})               
     end
 
-    def handle_cast({:saveFollowers, followedBy, followedTo}, state) do
-        serverProcess = Map.get(state, "serverProcess")
-        GenServer.cast(String.to_atom(serverProcess), {:setFollowers, followedBy, followedTo})               
-        {:noreply, state}
+    def postTweetWithMentions(clientId, mentions) do        
+        tweetContent = RandomGenerator.getRandomTweet()<> String.trim(Enum.reduce(mentions,"",fn(x,acc)->acc<>"@"<>x<>" " end))
+        tweetId = Integer.to_string(:os.system_time(:millisecond))<> "_" <> clientId
+        GenServer.cast(:global.whereis_name(:"twitterServer"), {:postTweet, clientId, tweetId, tweetContent})               
     end
+
+    def postTweetWithMentionsAndTags(clientId, mentions, hashtags) do        
+        tweetContent = RandomGenerator.getRandomTweet()<> String.trim(Enum.reduce(mentions,"",fn(x,acc)->acc<>"@"<>x<>" " end)) <> String.trim(Enum.reduce(hashtags,"",fn(x,acc)->acc<>"#"<>x<>" " end))
+        tweetId = Integer.to_string(:os.system_time(:millisecond))<> "_" <> clientId
+        GenServer.cast(:global.whereis_name(:"twitterServer"), {:postTweet, clientId, tweetId, tweetContent})               
+    end
+
 end
