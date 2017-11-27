@@ -68,14 +68,14 @@ defmodule TwitterClient do
     end
 
     def postTweetWithHashTags(clientId, hashtags) do        
-        tweetContent = RandomGenerator.getRandomTweet()<> String.trim(Enum.reduce(hashtags,"",fn(x,acc)->acc<>"#"<>x<>" " end))
-        IO.inspect tweetContent
+        tweetContent = RandomGenerator.getRandomTweet()<> String.trim(Enum.reduce(hashtags,"",fn(x,acc)->acc<>"#"<>x<>" " end))       
         tweetId = Integer.to_string(:os.system_time(:millisecond))<> "_" <> clientId
         GenServer.cast(:global.whereis_name(:"twitterServer"), {:postTweet, clientId, tweetId, tweetContent})               
     end
 
     def postTweetWithMentions(clientId, mentions) do        
         tweetContent = RandomGenerator.getRandomTweet()<> String.trim(Enum.reduce(mentions,"",fn(x,acc)->acc<>"@"<>x<>" " end))
+        IO.puts tweetContent
         tweetId = Integer.to_string(:os.system_time(:millisecond))<> "_" <> clientId
         GenServer.cast(:global.whereis_name(:"twitterServer"), {:postTweet, clientId, tweetId, tweetContent})               
     end
