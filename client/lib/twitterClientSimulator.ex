@@ -15,9 +15,11 @@ defmodule TwitterClientSimulator do
         Enum.each userMap, fn {userName, password} -> TwitterClient.register_client(userName, password) end 
         Enum.each userMap, fn {userName, password} -> TwitterClient.login_client(userName, password) end
         weighted_followers=getZipfDist(numClients) |> IO.inspect
-        for counter <- 0..numClients-1 do
-            weight= round(Enum.at(weighted_followers, counter))
-            clientId=Enum.at(clientIds, counter)
+        map_count=%{"counter"=>0}
+        for clientId <- 1..numClients do
+            count=Map.get(map_count,"counter")
+            weight= round(Enum.at(weighted_followers, count))
+            map_count=Map.put(map_count,"counter", Map.get(map_count,"counter")+1) |> IO.inspect
             randomClients=[]
             for x <- 1..weight do
                 random_client=getRandomClient(randomClients,clientIds)
@@ -25,7 +27,7 @@ defmodule TwitterClientSimulator do
                 TwitterClient.setFollower(random_client,clientId)
                 TwitterClient.postTweetWithHashTags(clientId, ["nishant", "moulik"])
             end
-            #IO.puts "Random clients for : " <> to_string(clientId) <> " = " <> to_string(randomClients)
+            IO.puts "Random clients for : " <> to_string(clientId) <> " = " <> to_string(randomClients)
         end
         
         # TwitterClient.setFollower(Enum.random(clientIds), Enum.random(clientIds))
