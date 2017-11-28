@@ -53,6 +53,7 @@ defmodule TwitterClient do
             :ok -> IO.puts "Login Successful"
                 #client = username
                 #GenServer.cast(String.to_atom(username),{:saveServerProcess, message})
+                getTweetsForUser(username)
             :failed -> IO.inspect message
         end
     end
@@ -86,4 +87,25 @@ defmodule TwitterClient do
         GenServer.cast(:global.whereis_name(:"twitterServer"), {:postTweet, clientId, tweetId, tweetContent})               
     end
 
+    def getTweetsForUser(clientId) do                        
+        result = GenServer.call(:global.whereis_name(:"twitterServer"), {:getPostsForUser, clientId})               
+        IO.puts(["Post for "<> clientId <> "\n", Enum.join(result, "\n")]) 
+        IO.puts "------------------------------------------------"
+    end
+
+    def getTweetsForHashTag(hashtag) do                        
+        result = GenServer.call(:global.whereis_name(:"twitterServer"), {:getPostsForHashTag, hashtag})               
+        IO.puts(["Post for "<> hashtag <> "\n", Enum.join(result, "\n")]) 
+        IO.puts "------------------------------------------------"
+    end
+    
+    def getTweetsForMentions(mentions) do                        
+        result = GenServer.call(:global.whereis_name(:"twitterServer"), {:getPostsForMention, mentions})               
+        IO.puts(["Post for @"<> mentions <> "\n", Enum.join(result, "\n")]) 
+        IO.puts "------------------------------------------------"
+    end
+
+    def retweetForUser(clientId) do
+        GenServer.cast(:global.whereis_name(:"twitterServer"), {:retweet, clientId})               
+    end
 end
