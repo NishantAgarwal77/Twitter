@@ -9,7 +9,7 @@ defmodule TwitterClient do
         Node.set_cookie(:"twitter")
     end
 
-    def start_link(clientId,clientIp,serverIp) do
+    def start_link(clientId,clientIp,serverIp,weight) do
         fqclientName = clientId <> "@" <> clientIp
         start_distributed(:"#{fqclientName}")
         IO.puts "Connecting to server"

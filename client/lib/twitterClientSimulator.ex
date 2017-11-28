@@ -8,10 +8,18 @@ defmodule TwitterClientSimulator do
     def init([currentNodeName, numClients,clientIp,serverIp]) do         
         IO.puts "Twitter Client Simulator created: "<> currentNodeName              
         clientIds = Enum.map(1..numClients, fn(_x) -> RandomGenerator.getClientId() end)         
-        Enum.each(clientIds, fn(x) -> TwitterClient.start_link(x,clientIp,serverIp) end)             
-        userMap = Enum.reduce clientIds, %{}, fn x, acc -> Map.put(acc, x, RandomGenerator.getPassword()) end        
+        #Enum.each(clientIds, fn(x) -> TwitterClient.start_link(x,clientIp,serverIp) end)  
+        weighted_followers=getZipfDist(numClients) |> IO.inspect
+        for counter <- 0..numClients-1 do
+            weight= round(Enum.at(weighted_followers, counter))
+            clientId=Enum.at(clientIds, counter)
+            TwitterClient.start_link(clientId,clientIp,serverIp,weight)
+            #IO.puts "Random clients for : " <> to_string(clientId) <> " = " <> to_string(randomClients)
+        end           
+        userMap = Enum.reduce clientIds, %{}, fn x, acc -> Map.put(acc, x, RandomGenerator.getPassword()) end
         Enum.each userMap, fn {userName, password} -> GenServer.cast(:global.whereis_name(String.to_atom(userName)),{:register, userName, password})  end                             
-        Enum.each userMap, fn {userName, password} -> TwitterClient.login_client(userName, password) end      
+        Enum.each userMap, fn {userName, password} -> TwitterClient.login_client(userName, password) end
+        
         spawn fn -> startSimulatingTweet(currentNodeName, clientIp, serverIp) end                   
 
         state = %{"clients" => userMap, "hashtags" => ["#twitter"], "inActiveClients" => []}        
@@ -90,5 +98,27 @@ defmodule TwitterClientSimulator do
         
         :timer.sleep(2000) 
         startSimulatingTweet(currentNodeName, clientIP, serverIP)
+    end
+
+    def getRandomClient(list,clients) do
+        random_client=Enum.random(clients)
+        if(Enum.member?(list, random_client)) do
+            random_client=getRandomClient(list,clients)
+        end
+        random_client
+    end
+
+    def getZipfDist(numberofClients) do
+        distList=[]
+        s=1
+        c=getConstantValue(numberofClients,s)
+        distList=Enum.map(1..numberofClients,fn(x)->:math.ceil((c*numberofClients)/:math.pow(x,s)) end)
+        distList
+    end
+
+    def getConstantValue(numberofClients,s) do
+        k=Enum.reduce(1..numberofClients,0,fn(x,acc)->:math.pow(1/x,s)+acc end )
+        k=1/k
+        k
     end
 end
