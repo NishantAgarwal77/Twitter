@@ -9,7 +9,7 @@ defmodule TwitterClient do
         Node.set_cookie(:"twitter")
     end
 
-    def start_link(clientId,clientIp,serverIp,weight) do
+    def start_link(clientId, clientIp, serverIp, weight) do
         fqclientName = clientId <> "@" <> clientIp
         start_distributed(:"#{fqclientName}")
         IO.puts "Connecting to server"
@@ -22,16 +22,13 @@ defmodule TwitterClient do
                 System.halt(0)
         end  
         n = {:name, {:global, String.to_atom(clientId)}}        
-        GenServer.start_link(__MODULE__, [clientId], [n])
-        #IO.puts clientId      
-        #currentNodeName= "client_"<>clientId
-        #GenServer.start_link(__MODULE__,[clientId],name: String.to_atom(currentNodeName))
+        GenServer.start_link(__MODULE__, [clientId, weight], [n])        
     end  
 
-    def init([clientId]) do  
-        Process.flag(:trap_exit, true)
+    def init([clientId, weight]) do  
+        Process.flag(:trap_exit, true)     
         IO.puts "Twitter Client created: "<> clientId
-        state = %{"nodeName" => clientId, "userDetails" => %{}}
+        state = %{"nodeName" => clientId, "userDetails" => %{}, "weight" => weight}
         {:ok, state}
     end
 
@@ -52,14 +49,17 @@ defmodule TwitterClient do
     def handle_cast({:login, username, password}, state) do 
         :global.sync()
         {status, message, userDetails} = GenServer.call(:global.whereis_name(:"twitterServer"),{:authenticateUser, username, password})  
-        case status do
+        state = case status do
             :ok -> IO.puts "Login Successful"                        
                    getTweetsForUser(username)
-                   spawn fn -> startTwitting(username) end                   
+                   weight = Map.get(state, "weight") |> IO.inspect
+                   processId = spawn fn -> startTwitting(username, weight) end  
+                   Map.put(state, "processId", processId)                 
             :failed -> IO.inspect message
+                        state
         end
 
-        state = Map.put(state, "userDetails", userDetails) 
+        state = Map.put(state, "userDetails", userDetails)
         {:noreply, state}
     end        
 
@@ -167,35 +167,64 @@ defmodule TwitterClient do
     end
 
     def stop(pid) do
-        GenServer.call(:global.whereis_name(String.to_atom(pid)), {:stop, pid})
+        GenServer.call(:global.whereis_name(String.to_atom(pid)), {:stopProcess, pid})
     end 
 
-    def handle_call({:stop, clientId}, _from, status) do
-        {:stop, :normal, status}
+    def handle_call({:stopProcess, clientId}, _from, state) do
+        IO.puts "closing process " <> clientId
+        #IO.inspect state 
+        pid = Map.get(state, "processId")
+        if Process.alive?(pid) do
+             Process.exit(pid, :kill)
+        end       
+        {:reply, state, state}
     end 
 
     def terminate(reason, status) do
         IO.puts "Logging out"
         :ok 
-    end 
+    end     
 
-    def startTwitting(clientId) do        
-        taskNo = Enum.random(1..9)
+     def startTwitting(clientId, weight) do                               
         :global.sync()
-        case taskNo do
-            1 -> GenServer.cast(:global.whereis_name(String.to_atom(clientId)),{:setFollower, clientId}) 
-            2 -> GenServer.cast(:global.whereis_name(String.to_atom(clientId)),{:postTweet, clientId}) 
-            3 -> GenServer.cast(:global.whereis_name(String.to_atom(clientId)),{:postTweetWithHashTags, clientId}) 
-            4 -> GenServer.cast(:global.whereis_name(String.to_atom(clientId)),{:postTweetWithMentions, clientId}) 
-            5 -> GenServer.cast(:global.whereis_name(String.to_atom(clientId)),{:postTweetWithMentionsAndTags, clientId}) 
-            6 -> GenServer.cast(:global.whereis_name(String.to_atom(clientId)),{:getTweetsForUser, clientId}) 
-            7 -> GenServer.cast(:global.whereis_name(String.to_atom(clientId)),{:getTweetsForHashTag}) 
-            8 -> GenServer.cast(:global.whereis_name(String.to_atom(clientId)),{:getTweetsForMentions}) 
-            9 -> GenServer.cast(:global.whereis_name(String.to_atom(clientId)),{:retweet, clientId}) 
-            _ -> IO.puts "Invalid Input"
-        end
-        
+
+        Enum.each(1..weight, fn(_x) -> 
+            GenServer.cast(:global.whereis_name(String.to_atom(clientId)),{:setFollower, clientId})         
+        end)
         :timer.sleep(1000) 
-        startTwitting(clientId)
+
+        numTweets = weight * 10
+        simpleTweets = round(0.2*numTweets)
+        hashTagTweets = round(0.6*numTweets)
+        mentionTweets = round(0.1*numTweets)
+        hashtagMentionTweets = round(0.1*numTweets)
+
+        Enum.each(1..simpleTweets, fn(_x) -> 
+            GenServer.cast(:global.whereis_name(String.to_atom(clientId)),{:postTweet, clientId})
+        end)
+        :timer.sleep(1000) 
+
+        Enum.each(1..hashTagTweets, fn(_x) -> 
+           GenServer.cast(:global.whereis_name(String.to_atom(clientId)),{:postTweetWithHashTags, clientId}) 
+        end)
+        :timer.sleep(1000) 
+        Enum.each(1..mentionTweets, fn(_x) -> 
+            GenServer.cast(:global.whereis_name(String.to_atom(clientId)),{:postTweetWithMentions, clientId}) 
+        end)
+        :timer.sleep(1000) 
+
+        Enum.each(1..hashtagMentionTweets, fn(_x) -> 
+            GenServer.cast(:global.whereis_name(String.to_atom(clientId)),{:postTweetWithMentionsAndTags, clientId}) 
+        end)
+        :timer.sleep(1000) 
+
+        GenServer.cast(:global.whereis_name(String.to_atom(clientId)),{:getTweetsForUser, clientId}) 
+        GenServer.cast(:global.whereis_name(String.to_atom(clientId)),{:getTweetsForHashTag}) 
+        GenServer.cast(:global.whereis_name(String.to_atom(clientId)),{:getTweetsForMentions}) 
+        
+        Enum.each(1..weight, fn(_x) -> 
+            GenServer.cast(:global.whereis_name(String.to_atom(clientId)),{:retweet, clientId}) 
+        end)
+        :timer.sleep(1000) 
     end     
 end

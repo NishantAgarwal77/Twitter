@@ -9,7 +9,7 @@ defmodule TwitterClientSimulator do
         IO.puts "Twitter Client Simulator created: "<> currentNodeName              
         clientIds = Enum.map(1..numClients, fn(_x) -> RandomGenerator.getClientId() end)         
         #Enum.each(clientIds, fn(x) -> TwitterClient.start_link(x,clientIp,serverIp) end)  
-        weighted_followers=getZipfDist(numClients) |> IO.inspect
+        weighted_followers=getZipfDist(numClients)
         for counter <- 0..numClients-1 do
             weight= round(Enum.at(weighted_followers, counter))
             clientId=Enum.at(clientIds, counter)
@@ -54,7 +54,7 @@ defmodule TwitterClientSimulator do
 
     def handle_cast({:registerNewClient, clientIp,serverIp}, state) do           
         newClientId = RandomGenerator.getClientId()      
-        TwitterClient.start_link(newClientId,clientIp,serverIp)
+        TwitterClient.start_link(newClientId,clientIp,serverIp, Enum.random(1..10))
         password = RandomGenerator.getPassword()
         state = Map.put(state, newClientId, password)
         GenServer.cast(:global.whereis_name(String.to_atom(newClientId)),{:register, newClientId, password})
@@ -62,13 +62,17 @@ defmodule TwitterClientSimulator do
         {:noreply, state}
     end    
 
-    def handle_cast({:logout, clientIp,serverIp}, state) do  
+    def handle_cast({:logout, currentNode}, state) do  
         IO.puts "$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$" 
         clients = Map.keys(Map.get(state, "clients")) 
         clientToBeLoggedOut = Enum.random(clients)
-        state = Map.put(state, "inActiveClients", [clientToBeLoggedOut | Map.get(state, "inActiveClients")])
-        #TwitterClient.stop(clientToBeLoggedOut)
-        IO.inspect state
+        inactiveClients = Map.get(state, "inActiveClients")
+        state = case Enum.member?(inactiveClients, clientToBeLoggedOut) or clientToBeLoggedOut == currentNode do
+            :true -> state 
+            :false ->TwitterClient.stop(clientToBeLoggedOut) 
+                    Map.put(state, "inActiveClients", [clientToBeLoggedOut | inactiveClients])                   
+        end                
+        #IO.inspect state
         {:noreply, state}
     end     
 
@@ -86,13 +90,13 @@ defmodule TwitterClientSimulator do
         {:noreply, state}
     end     
 
-    def startSimulatingTweet(currentNodeName, clientIP, serverIP) do        
-        taskNo = Enum.random(2..3)
+    def startSimulatingTweet(currentNodeName, clientIP, serverIP) do       
+        taskNo = Enum.random(1..2)
         :global.sync()
-        case taskNo do
-            1 -> GenServer.cast(String.to_atom(currentNodeName),{:registerNewClient, clientIP, serverIP})                  
-            2 -> GenServer.cast(String.to_atom(currentNodeName),{:logout, clientIP, serverIP})                  
-            3 -> GenServer.cast(String.to_atom(currentNodeName),{:login})                  
+        case 2 do
+            #1 -> GenServer.cast(String.to_atom(currentNodeName),{:registerNewClient, clientIP, serverIP})                  
+            1 -> GenServer.cast(String.to_atom(currentNodeName),{:logout, currentNodeName})                  
+            2 -> GenServer.cast(String.to_atom(currentNodeName),{:login})                  
             _ -> IO.puts "Invalid Input"
         end
         
@@ -109,16 +113,14 @@ defmodule TwitterClientSimulator do
     end
 
     def getZipfDist(numberofClients) do
-        distList=[]
         s=1
         c=getConstantValue(numberofClients,s)
-        distList=Enum.map(1..numberofClients,fn(x)->:math.ceil((c*numberofClients)/:math.pow(x,s)) end)
-        distList
+        Enum.map(1..numberofClients,fn(x)->:math.ceil((c*numberofClients)/:math.pow(x,s)) end)
     end
 
     def getConstantValue(numberofClients,s) do
-        k=Enum.reduce(1..numberofClients,0,fn(x,acc)->:math.pow(1/x,s)+acc end )
-        k=1/k
-        k
+        IO.puts numberofClients
+        k=Enum.reduce(1..numberofClients,0,fn(x,acc)->:math.pow(1/x,s)+acc end)    
+        1 / k
     end
 end
