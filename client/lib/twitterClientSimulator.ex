@@ -1,14 +1,13 @@
 defmodule TwitterClientSimulator do
     
     @simulator "twitterClientSim"
-    def start_link(numClients,clientIp,serverIp) do
+    def start_link() do
         currentNodeName= "twitterClientSim"
-        GenServer.start_link(__MODULE__,[currentNodeName, numClients,clientIp,serverIp],name: String.to_atom(currentNodeName))
+        GenServer.start_link(__MODULE__,[currentNodeName],name: String.to_atom(currentNodeName))
     end  
 
-    def init([currentNodeName, numClients,clientIp,serverIp]) do         
+    def init([currentNodeName]) do         
         IO.puts "Twitter Client Simulator created: "<> currentNodeName                             
-
         state = %{"clients" => %{}, "hashtags" => ["#twitter"], "inActiveClients" => []}        
         {:ok, state}
     end 
@@ -66,10 +65,11 @@ defmodule TwitterClientSimulator do
     def handle_cast({:login}, state) do   
         clients = Map.get(state, "inActiveClients")
         state = case length(clients) > 0 do 
-            :true ->clientToBeLoggedIn = Enum.random(clients)                    
+            :true ->clientToBeLoggedIn = Enum.random(clients) 
+                    IO.puts clientToBeLoggedIn<>" logged back into the system"                   
                     TwitterClient.login_client(clientToBeLoggedIn, Kernel.get_in(state, ["clients", clientToBeLoggedIn]))
                     Map.put(state, "inActiveClients", List.delete(clients, clientToBeLoggedIn))
-            :false -> IO.puts "No inactive client present"
+            :false -> IO.puts "All users are logged on, no inactive client found"
                     state
         end
         
@@ -77,8 +77,7 @@ defmodule TwitterClientSimulator do
     end     
 
     def startSimulatingTweet(currentNodeName, clientIP, serverIP) do       
-        #taskNo = Enum.random(1..2)
-        :timer.sleep(200000) 
+        #taskNo = Enum.random(1..2)       
         :global.sync()
         case 2 do
             #1 -> GenServer.cast(String.to_atom(currentNodeName),{:registerNewClient, clientIP, serverIP})                  
@@ -87,7 +86,7 @@ defmodule TwitterClientSimulator do
             _ -> IO.puts "Invalid Input"
         end
         
-        :timer.sleep(2000) 
+        :timer.sleep(5000) 
         startSimulatingTweet(currentNodeName, clientIP, serverIP)
     end
 
@@ -111,11 +110,11 @@ defmodule TwitterClientSimulator do
         1 / k
     end
 
-    def generateAndRegisterClients(numClients, clientIp, serverIp) do
+    def generateAndRegisterClients(numClients, clientIp, serverIp, weighted_followers) do
         receive do
         {sender} ->
             clientIds = Enum.map(1..numClients, fn(_x) -> RandomGenerator.getClientId() end)         
-            weighted_followers=getZipfDist(numClients)
+            #weighted_followers = getZipfDist(numClients)
             for counter <- 0..numClients-1 do
                 weight= round(Enum.at(weighted_followers, counter))
                 clientId=Enum.at(clientIds, counter)
@@ -124,13 +123,13 @@ defmodule TwitterClientSimulator do
             userMap = Enum.reduce clientIds, %{}, fn x, acc -> Map.put(acc, x, RandomGenerator.getPassword()) end
             Enum.each userMap, fn {userName, password} -> GenServer.cast(:global.whereis_name(String.to_atom(userName)),{:register, userName, password})  end                             
             Enum.each userMap, fn {userName, password} -> TwitterClient.login_client(userName, password) end
-            send sender, { :ok , userMap }             
+            send sender, { :ok , userMap }  
+            generateAndRegisterClients(numClients, clientIp, serverIp, weighted_followers)           
         end
     end
 
-    def handle_cast({:createClients, numClients, clientIp, serverIp}, state) do  
-        IO.inspect state 
-        pid = spawn fn -> generateAndRegisterClients(numClients, clientIp, serverIp) end
+    def handle_cast({:createClients, numClients, clientIp, serverIp, weights}, state) do         
+        pid = spawn fn -> generateAndRegisterClients(numClients, clientIp, serverIp, weights) end
         send pid, {self()} 
         receive do
             { :ok , userMap} ->
@@ -140,13 +139,20 @@ defmodule TwitterClientSimulator do
         {:noreply, state}
     end   
 
-    def startSimulation(numClients,clientIp,serverIp) do
-        splitNumClients = round(numClients / 8)
-        for _x <- 1..7 do
-            GenServer.cast(String.to_atom("twitterClientSim"),{:createClients, splitNumClients, clientIp, serverIp})
+    def startSimulation(numClients,clientIp,serverIp) do 
+
+        splitNumClients = case rem(numClients, 8) == 0 do
+            :true ->  numClients / 8
+            :false -> round(numClients / 7)
+        end       
+                
+        weighted_followers = Enum.chunk_every(getZipfDist(numClients), splitNumClients)
+        IO.inspect weighted_followers
+        for x <- 0..6 do
+            GenServer.cast(String.to_atom("twitterClientSim"),{:createClients, splitNumClients, clientIp, serverIp, Enum.at(weighted_followers, x)})
         end
         num =  numClients - (7 * splitNumClients)
-        GenServer.cast(String.to_atom("twitterClientSim"),{:createClients, num, clientIp, serverIp})
-        #spawn fn -> startSimulatingTweet(@simulator, clientIp, serverIp) end  
+        GenServer.cast(String.to_atom("twitterClientSim"),{:createClients, num, clientIp, serverIp, Enum.at(weighted_followers, 7)})
+        spawn fn -> startSimulatingTweet(@simulator, clientIp, serverIp) end  
     end 
 end

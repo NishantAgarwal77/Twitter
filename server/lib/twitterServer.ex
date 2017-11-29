@@ -53,7 +53,7 @@ defmodule TwitterServer do
         #followersList = Map.get(state, "followers")            
         followersList = Kernel.get_in(state, ["userDetails", followedTo, "followers"]) 
         state = case Enum.member?(followersList, followedBy) or (followedTo == followedBy) do
-            :true -> IO.puts "Member Already present"
+            :true -> IO.puts "Member Already present. Please choose another user to be followed"
                     state
             :false ->   state = Kernel.put_in(state, ["userDetails", followedTo, "followers"], [followedBy | followersList])
                         Kernel.put_in(state, ["userDetails", followedBy, "following"], [followedTo | Kernel.get_in(state, ["userDetails", followedBy, "following"]) ])

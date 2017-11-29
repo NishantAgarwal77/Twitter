@@ -37,7 +37,7 @@ defmodule TwitterClient do
         :global.sync()
         {status, message} = GenServer.call(:global.whereis_name(:"twitterServer"),{:registerUser, username, password})  
         case status do
-            :ok ->IO.puts "Registration Successful for "<>username
+            :ok ->IO.puts "Registration Successful for user: "<>username
                   #login_client(username,password)               
             :failed -> IO.inspect message
         end
@@ -50,7 +50,7 @@ defmodule TwitterClient do
         :global.sync()
         {status, message, userDetails} = GenServer.call(:global.whereis_name(:"twitterServer"),{:authenticateUser, username, password})  
         state = case status do
-            :ok -> IO.puts "Login Successful"                        
+            :ok -> IO.puts "Login Successful for user: "<> username                       
                    getTweetsForUser(username)
                    weight = Map.get(state, "weight")
                    processId = spawn fn -> startTwitting(username, weight) end  
@@ -68,8 +68,9 @@ defmodule TwitterClient do
         GenServer.cast(:global.whereis_name(String.to_atom(username)),{:login, username, password})          
     end
 
-    def handle_cast({:setFollower, followedBy}, state) do 
-        followedTo = Enum.random(GenServer.call(String.to_atom("twitterClientSim"),{:getClients}))
+    def handle_cast({:setFollower, followedBy}, state) do         
+        followedTo = Enum.random(GenServer.call(String.to_atom("twitterClientSim"),{:getClients}, :infinity))
+        IO.puts "User: "<> followedTo <> " is now following user: "<> followedBy
         :global.sync()        
         userDetails = GenServer.call(:global.whereis_name(:"twitterServer"), {:setFollowers, followedBy, followedTo})               
         state = Map.put(state, "userDetails", userDetails) 
@@ -88,7 +89,7 @@ defmodule TwitterClient do
 
     def handle_cast({:postTweetWithHashTags, clientId}, state) do 
         :global.sync()  
-        hashtags = GenServer.call(String.to_atom("twitterClientSim"),{:getsaveHashTags})          
+        hashtags = GenServer.call(String.to_atom("twitterClientSim"),{:getsaveHashTags}, :infinity)          
         tweetContent = RandomGenerator.getRandomTweet()<> String.trim(Enum.reduce(hashtags,"",fn(x,acc)->acc<>x<>" " end))       
         tweetId = RandomGenerator.getClientId(8) <> "_" <> clientId
         userDetails = GenServer.call(:global.whereis_name(:"twitterServer"), {:postTweet, clientId, tweetId, tweetContent})               
@@ -97,9 +98,8 @@ defmodule TwitterClient do
     end     
 
     def handle_cast({:postTweetWithMentions, clientId}, state) do 
-        :global.sync()      
-        IO.puts "gggggggggggggggggggggggggggggggg"
-        mentions = Enum.take_random(GenServer.call(String.to_atom("twitterClientSim"),{:getClients}), Enum.random(1..3))
+        :global.sync()             
+        mentions = Enum.take_random(GenServer.call(String.to_atom("twitterClientSim"),{:getClients}, :infinity), Enum.random(1..3))
         tweetContent = RandomGenerator.getRandomTweet()<> String.trim(Enum.reduce(mentions,"",fn(x,acc)->acc<>"@"<>x<>" " end))
         #IO.puts tweetContent
         tweetId = RandomGenerator.getClientId(8) <> "_" <> clientId
@@ -109,10 +109,9 @@ defmodule TwitterClient do
     end      
 
     def handle_cast({:postTweetWithMentionsAndTags, clientId}, state) do 
-       :global.sync() 
-       IO.puts "gggggggggggggggggggggggggggggggg"
-        hashtags = GenServer.call(String.to_atom("twitterClientSim"),{:getsaveHashTags})                     
-        mentions = Enum.take_random(GenServer.call(String.to_atom("twitterClientSim"),{:getClients}), Enum.random(1..3))      
+       :global.sync()       
+        hashtags = GenServer.call(String.to_atom("twitterClientSim"),{:getsaveHashTags}, :infinity)                     
+        mentions = Enum.take_random(GenServer.call(String.to_atom("twitterClientSim"),{:getClients}, :infinity), Enum.random(1..3))      
         tweetContent = RandomGenerator.getRandomTweet()<> String.trim(Enum.reduce(mentions,"",fn(x,acc)->acc<>"@"<>x<>" " end)) <> String.trim(Enum.reduce(hashtags,"",fn(x,acc)->acc<>x<>" " end))
         tweetId = RandomGenerator.getClientId(8) <> "_" <> clientId
         userDetails = GenServer.call(:global.whereis_name(:"twitterServer"), {:postTweet, clientId, tweetId, tweetContent})               
@@ -132,9 +131,8 @@ defmodule TwitterClient do
     end
 
     def handle_cast({:getTweetsForHashTag}, state) do 
-        :global.sync() 
-        IO.puts "gggggggggggggggggggggggggggggggg"
-        hashtag = Enum.random(GenServer.call(String.to_atom("twitterClientSim"),{:getHashTag}))
+        :global.sync()         
+        hashtag = Enum.random(GenServer.call(String.to_atom("twitterClientSim"),{:getHashTag}, :infinity))
         result = GenServer.call(:global.whereis_name(:"twitterServer"), {:getPostsForHashTag, hashtag})               
         if length(result) > 0  do        
             IO.puts(["Posts with hashtag "<> hashtag <> "\n" <> @lineSeperator <> "\n" , Enum.join(result, "\n"), "\n" <> @lineSeperator])         
@@ -146,7 +144,7 @@ defmodule TwitterClient do
 
     def handle_cast({:getTweetsForMentions}, state) do 
         :global.sync()         
-        mention = Enum.random(GenServer.call(String.to_atom("twitterClientSim"),{:getClients}))
+        mention = Enum.random(GenServer.call(String.to_atom("twitterClientSim"),{:getClients}, :infinity))
         result = GenServer.call(:global.whereis_name(:"twitterServer"), {:getPostsForMention, mention})               
         if length(result) > 0 do
             IO.puts(["Post for mention @"<> mention <> "\n" <> @lineSeperator <> "\n", Enum.join(result, "\n"), "\n" <> @lineSeperator])            
@@ -174,7 +172,7 @@ defmodule TwitterClient do
     end 
 
     def handle_call({:stopProcess, clientId}, _from, state) do
-        IO.puts "closing process " <> clientId
+        IO.puts "Closing process " <> clientId
         #IO.inspect state 
         pid = Map.get(state, "processId")
         if Process.alive?(pid) do
@@ -185,17 +183,15 @@ defmodule TwitterClient do
 
     def terminate(reason, status) do
         IO.puts "Logging out"
-        IO.inspect reason
-        IO.inspect status
+        #IO.inspect reason
+        #IO.inspect status
         :ok 
     end     
 
      def startTwitting(clientId, weight) do                               
-        :global.sync()
-        IO.puts "$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$"
-        weight = 10        
-        Enum.each(1..weight, fn(_x) -> 
-            IO.puts "Insodoiiiiiiiiiiiiiiiiiiiiiiiiii"
+        :global.sync()  
+
+        Enum.each(1..weight, fn(_x) ->             
             GenServer.cast(:global.whereis_name(String.to_atom(clientId)),{:setFollower, clientId})         
         end)
         :timer.sleep(1000) 
@@ -232,7 +228,8 @@ defmodule TwitterClient do
         Enum.each(1..weight, fn(_x) -> 
             GenServer.cast(:global.whereis_name(String.to_atom(clientId)),{:retweet, clientId}) 
         end)
-        :timer.sleep(1000) 
+
+        :timer.sleep(1000 * weight * Enum.random(1..100)) 
 
         GenServer.cast(String.to_atom("twitterClientSim"),{:logout, clientId})
         Process.exit(self(), :kill)
