@@ -96,27 +96,14 @@ defmodule TwitterClientSimulator do
             random_client=getRandomClient(list,clients)
         end
         random_client
-    end
+    end    
 
-    def getZipfDist(numberofClients) do
-        s=1
-        c=getConstantValue(numberofClients,s)
-        Enum.map(1..numberofClients,fn(x)->:math.ceil((c*numberofClients)/:math.pow(x,s)) end)
-    end
-
-    def getConstantValue(numberofClients,s) do
-        #IO.puts numberofClients
-        k=Enum.reduce(1..numberofClients,0,fn(x,acc)->:math.pow(1/x,s)+acc end)    
-        1 / k
-    end
-
-    def generateAndRegisterClients(numClients, clientIp, serverIp, weighted_followers) do
+    def generateAndRegisterClients(numClients, clientIp, serverIp, weighted_followers) do       
         receive do
-        {sender} ->
-            clientIds = Enum.map(1..numClients, fn(_x) -> RandomGenerator.getClientId() end)         
-            #weighted_followers = getZipfDist(numClients)
+        {sender} ->           
+            clientIds = Enum.map(1..numClients, fn(_x) -> RandomGenerator.getClientId() end)           
             for counter <- 0..numClients-1 do
-                weight= round(Enum.at(weighted_followers, counter))
+                weight= round(Enum.at(weighted_followers, counter))               
                 clientId=Enum.at(clientIds, counter)
                 TwitterClient.start_link(clientId,clientIp,serverIp,weight)            
             end           
@@ -128,7 +115,7 @@ defmodule TwitterClientSimulator do
         end
     end
 
-    def handle_cast({:createClients, numClients, clientIp, serverIp, weights}, state) do         
+    def handle_cast({:createClients, numClients, clientIp, serverIp, weights}, state) do                 
         pid = spawn fn -> generateAndRegisterClients(numClients, clientIp, serverIp, weights) end
         send pid, {self()} 
         receive do
@@ -140,19 +127,32 @@ defmodule TwitterClientSimulator do
     end   
 
     def startSimulation(numClients,clientIp,serverIp) do 
-
-        splitNumClients = case rem(numClients, 8) == 0 do
-            :true ->  numClients / 8
-            :false -> round(numClients / 7)
-        end       
-                
-        weighted_followers = Enum.chunk_every(getZipfDist(numClients), splitNumClients)
-        IO.inspect weighted_followers
-        for x <- 0..6 do
-            GenServer.cast(String.to_atom("twitterClientSim"),{:createClients, splitNumClients, clientIp, serverIp, Enum.at(weighted_followers, x)})
+       
+        if numClients <= 8 do
+            weighted_followers = getZipfDist(numClients)
+            GenServer.cast(String.to_atom("twitterClientSim"),{:createClients, numClients, clientIp, serverIp, weighted_followers})
+        else
+            splitNumClients = round(numClients / 8)
+            weighted_followers = Enum.chunk_every(getZipfDist(7 * splitNumClients), splitNumClients) 
+            for x <- 0..6 do
+                GenServer.cast(String.to_atom("twitterClientSim"),{:createClients, splitNumClients, clientIp, serverIp, Enum.at(weighted_followers, x)})
+            end
+            num =  numClients - (7 * splitNumClients)
+            weighted_followers = getZipfDist(num)
+            GenServer.cast(String.to_atom("twitterClientSim"),{:createClients, num, clientIp, serverIp, weighted_followers})
         end
-        num =  numClients - (7 * splitNumClients)
-        GenServer.cast(String.to_atom("twitterClientSim"),{:createClients, num, clientIp, serverIp, Enum.at(weighted_followers, 7)})
+                          
         spawn fn -> startSimulatingTweet(@simulator, clientIp, serverIp) end  
+    end
+
+    def getZipfDist(numberofClients) do
+        s=1
+        c=getConstantValue(numberofClients,s)
+        Enum.map(1..numberofClients,fn(x)->:math.ceil((c * numberofClients)/:math.pow(x,s)) end)
+    end
+
+    def getConstantValue(numberofClients,s) do        
+        k = Enum.reduce(1..numberofClients,0,fn(x,acc)->:math.pow(1/x,s)+acc end)    
+        1 / k
     end 
 end
