@@ -1,28 +1,15 @@
 defmodule TwitterClientSimulator do
     
+    @simulator "twitterClientSim"
     def start_link(numClients,clientIp,serverIp) do
         currentNodeName= "twitterClientSim"
         GenServer.start_link(__MODULE__,[currentNodeName, numClients,clientIp,serverIp],name: String.to_atom(currentNodeName))
     end  
 
     def init([currentNodeName, numClients,clientIp,serverIp]) do         
-        IO.puts "Twitter Client Simulator created: "<> currentNodeName              
-        clientIds = Enum.map(1..numClients, fn(_x) -> RandomGenerator.getClientId() end)         
-        #Enum.each(clientIds, fn(x) -> TwitterClient.start_link(x,clientIp,serverIp) end)  
-        weighted_followers=getZipfDist(numClients)
-        for counter <- 0..numClients-1 do
-            weight= round(Enum.at(weighted_followers, counter))
-            clientId=Enum.at(clientIds, counter)
-            TwitterClient.start_link(clientId,clientIp,serverIp,weight)
-            #IO.puts "Random clients for : " <> to_string(clientId) <> " = " <> to_string(randomClients)
-        end           
-        userMap = Enum.reduce clientIds, %{}, fn x, acc -> Map.put(acc, x, RandomGenerator.getPassword()) end
-        Enum.each userMap, fn {userName, password} -> GenServer.cast(:global.whereis_name(String.to_atom(userName)),{:register, userName, password})  end                             
-        Enum.each userMap, fn {userName, password} -> TwitterClient.login_client(userName, password) end
-        
-        spawn fn -> startSimulatingTweet(currentNodeName, clientIp, serverIp) end                   
+        IO.puts "Twitter Client Simulator created: "<> currentNodeName                             
 
-        state = %{"clients" => userMap, "hashtags" => ["#twitter"], "inActiveClients" => []}        
+        state = %{"clients" => %{}, "hashtags" => ["#twitter"], "inActiveClients" => []}        
         {:ok, state}
     end 
 
@@ -91,6 +78,7 @@ defmodule TwitterClientSimulator do
 
     def startSimulatingTweet(currentNodeName, clientIP, serverIP) do       
         #taskNo = Enum.random(1..2)
+        :timer.sleep(200000) 
         :global.sync()
         case 2 do
             #1 -> GenServer.cast(String.to_atom(currentNodeName),{:registerNewClient, clientIP, serverIP})                  
@@ -122,4 +110,43 @@ defmodule TwitterClientSimulator do
         k=Enum.reduce(1..numberofClients,0,fn(x,acc)->:math.pow(1/x,s)+acc end)    
         1 / k
     end
+
+    def generateAndRegisterClients(numClients, clientIp, serverIp) do
+        receive do
+        {sender} ->
+            clientIds = Enum.map(1..numClients, fn(_x) -> RandomGenerator.getClientId() end)         
+            weighted_followers=getZipfDist(numClients)
+            for counter <- 0..numClients-1 do
+                weight= round(Enum.at(weighted_followers, counter))
+                clientId=Enum.at(clientIds, counter)
+                TwitterClient.start_link(clientId,clientIp,serverIp,weight)            
+            end           
+            userMap = Enum.reduce clientIds, %{}, fn x, acc -> Map.put(acc, x, RandomGenerator.getPassword()) end
+            Enum.each userMap, fn {userName, password} -> GenServer.cast(:global.whereis_name(String.to_atom(userName)),{:register, userName, password})  end                             
+            Enum.each userMap, fn {userName, password} -> TwitterClient.login_client(userName, password) end
+            send sender, { :ok , userMap }             
+        end
+    end
+
+    def handle_cast({:createClients, numClients, clientIp, serverIp}, state) do  
+        IO.inspect state 
+        pid = spawn fn -> generateAndRegisterClients(numClients, clientIp, serverIp) end
+        send pid, {self()} 
+        receive do
+            { :ok , userMap} ->
+            state = Map.put(state, "clients", Map.merge(Map.get(state, "clients"), userMap))
+        end
+
+        {:noreply, state}
+    end   
+
+    def startSimulation(numClients,clientIp,serverIp) do
+        splitNumClients = round(numClients / 8)
+        for _x <- 1..7 do
+            GenServer.cast(String.to_atom("twitterClientSim"),{:createClients, splitNumClients, clientIp, serverIp})
+        end
+        num =  numClients - (7 * splitNumClients)
+        GenServer.cast(String.to_atom("twitterClientSim"),{:createClients, num, clientIp, serverIp})
+        #spawn fn -> startSimulatingTweet(@simulator, clientIp, serverIp) end  
+    end 
 end

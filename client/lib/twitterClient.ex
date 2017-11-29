@@ -98,6 +98,7 @@ defmodule TwitterClient do
 
     def handle_cast({:postTweetWithMentions, clientId}, state) do 
         :global.sync()      
+        IO.puts "gggggggggggggggggggggggggggggggg"
         mentions = Enum.take_random(GenServer.call(String.to_atom("twitterClientSim"),{:getClients}), Enum.random(1..3))
         tweetContent = RandomGenerator.getRandomTweet()<> String.trim(Enum.reduce(mentions,"",fn(x,acc)->acc<>"@"<>x<>" " end))
         #IO.puts tweetContent
@@ -109,6 +110,7 @@ defmodule TwitterClient do
 
     def handle_cast({:postTweetWithMentionsAndTags, clientId}, state) do 
        :global.sync() 
+       IO.puts "gggggggggggggggggggggggggggggggg"
         hashtags = GenServer.call(String.to_atom("twitterClientSim"),{:getsaveHashTags})                     
         mentions = Enum.take_random(GenServer.call(String.to_atom("twitterClientSim"),{:getClients}), Enum.random(1..3))      
         tweetContent = RandomGenerator.getRandomTweet()<> String.trim(Enum.reduce(mentions,"",fn(x,acc)->acc<>"@"<>x<>" " end)) <> String.trim(Enum.reduce(hashtags,"",fn(x,acc)->acc<>x<>" " end))
@@ -131,9 +133,10 @@ defmodule TwitterClient do
 
     def handle_cast({:getTweetsForHashTag}, state) do 
         :global.sync() 
+        IO.puts "gggggggggggggggggggggggggggggggg"
         hashtag = Enum.random(GenServer.call(String.to_atom("twitterClientSim"),{:getHashTag}))
         result = GenServer.call(:global.whereis_name(:"twitterServer"), {:getPostsForHashTag, hashtag})               
-        if length(result) > 0  do
+        if length(result) > 0  do        
             IO.puts(["Posts with hashtag "<> hashtag <> "\n" <> @lineSeperator <> "\n" , Enum.join(result, "\n"), "\n" <> @lineSeperator])         
         else 
             IO.puts "No tweets found with hashtag "<> hashtag
@@ -182,13 +185,17 @@ defmodule TwitterClient do
 
     def terminate(reason, status) do
         IO.puts "Logging out"
+        IO.inspect reason
+        IO.inspect status
         :ok 
     end     
 
      def startTwitting(clientId, weight) do                               
         :global.sync()
-
+        IO.puts "$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$"
+        weight = 10        
         Enum.each(1..weight, fn(_x) -> 
+            IO.puts "Insodoiiiiiiiiiiiiiiiiiiiiiiiiii"
             GenServer.cast(:global.whereis_name(String.to_atom(clientId)),{:setFollower, clientId})         
         end)
         :timer.sleep(1000) 
