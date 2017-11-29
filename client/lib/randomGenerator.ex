@@ -8,6 +8,13 @@ defmodule RandomGenerator do
 
     def getRandomTweet() do
         :crypto.strong_rand_bytes(40) |> Base.url_encode64 |> binary_part(0, 40)         
+    end  
+
+    def getRandomHashTag() do
+        num = Enum.random(1..3)
+        Enum.reduce(1..num, [],fn(_x,acc)->
+            [acc | RandomGenerator.getClientId(6)]
+        end)    
     end
 
     def getClientId(length \\@randomStringLength) do

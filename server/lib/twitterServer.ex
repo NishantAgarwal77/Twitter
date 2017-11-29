@@ -41,17 +41,16 @@ defmodule TwitterServer do
             :true -> 
                 case Kernel.get_in(state, ["userTable", userName]) == password do
                     :true -> 
-                    {:ok, "Authentication Completed"}
+                    {:ok, "Authentication Completed"}                    
                     :false -> {:failed, "Password Incorrect"}
                 end
             :false -> {:failed, "UserName does not exist"}
         end
-        {:reply , {status, message},state}
+        {:reply , {status, message, Kernel.get_in(state, ["userDetails", userName])},state}
     end
 
-
-    def handle_cast({:setFollowers, followedBy, followedTo}, state) do        
-        #followersList = Map.get(state, "followers")        
+    def handle_call({:setFollowers, followedBy, followedTo},_from, state) do        
+        #followersList = Map.get(state, "followers")            
         followersList = Kernel.get_in(state, ["userDetails", followedTo, "followers"]) 
         state = case Enum.member?(followersList, followedBy) or (followedTo == followedBy) do
             :true -> IO.puts "Member Already present"
@@ -60,13 +59,13 @@ defmodule TwitterServer do
                         Kernel.put_in(state, ["userDetails", followedBy, "following"], [followedTo | Kernel.get_in(state, ["userDetails", followedBy, "following"]) ])
                         #GenServer.cast(String.to_atom("server_"<>followedBy), {:setFollowing, followedBy, followedTo})                                               
         end               
-        {:noreply, state}
+        {:reply, Kernel.get_in(state, ["userDetails", followedBy]), state}
     end   
 
-    def handle_cast({:postTweet, userName, tweetId, tweetMessage}, state) do          
+    def handle_call({:postTweet, userName, tweetId, tweetMessage},_from,  state) do          
         hashTagList = TwitterServer.parseTweetsForHashTags(tweetMessage)      
         mentionsList = TwitterServer.parseTweetsForMentions(tweetMessage)               
-        IO.inspect mentionsList
+        #IO.inspect mentionsList
         # add the hashtags if present in the hashtag table
         state = case length(hashTagList) > 0 do        
             :true -> 
@@ -82,7 +81,7 @@ defmodule TwitterServer do
 
         # add the mentions if present in the userdetails table        
         state = case length(mentionsList) > 0 do        
-            :true -> 
+            :true ->             
             state = Enum.reduce(mentionsList, state,fn(x, acc)->
                 l = Kernel.get_in(state, ["userDetails", x,"mentions"])                                
                 acc = Kernel.put_in(state, ["userDetails", x,"mentions"], [tweetId | l])        
@@ -95,10 +94,10 @@ defmodule TwitterServer do
         state = Kernel.put_in(state, ["tweets", tweetId], [tweetMessage, userName, 0])
 
         #Adding the tweet to the corresponding user who posted it
-        state = Kernel.put_in(state, ["userDetails", userName, "tweets"], [tweetId | Kernel.get_in(state, ["userDetails", userName, "tweets"])])   
+        state = Kernel.put_in(state, ["userDetails", userName, "tweets"], [tweetId | Kernel.get_in(state, ["userDetails", userName, "tweets"])])           
 
-        IO.inspect state
-        {:noreply , state}
+        #IO.inspect state 
+        {:reply,Kernel.get_in(state, ["userDetails", userName]), state}
     end
 
     def parseTweetsForHashTags(tweetMessage) do
@@ -116,7 +115,7 @@ defmodule TwitterServer do
         tweetIdList = Enum.reduce(Map.get(userMap, "following"), tweetIds, fn(x, acc) ->
             Kernel.get_in(state, ["userDetails", x, "tweets"])++acc
         end)
-        IO.inspect tweetIdList
+        #IO.inspect tweetIdList
         result = Enum.reduce(tweetIdList, [], fn(x, acc)-> 
             [msg, user, status] = Kernel.get_in(state, ["tweets", x])
             #[acc | [msg <>" postedBy " <> user]]
@@ -131,7 +130,9 @@ defmodule TwitterServer do
 
     def handle_call({:getPostsForHashTag, hashtag}, _from, state) do          
         tweetIdList = Kernel.get_in(state, ["hashtags", hashtag])               
-        result = Enum.reduce(tweetIdList, [], fn(x, acc)-> 
+        result = case tweetIdList != nil and length(tweetIdList) > 0 do
+            :true ->
+            Enum.reduce(tweetIdList, [], fn(x, acc)-> 
             [msg, user, status] = Kernel.get_in(state, ["tweets", x])
             msg = case status == 0 do
                 :true -> msg <>" postedBy " <> user
@@ -139,43 +140,39 @@ defmodule TwitterServer do
             end
             [msg | acc]
         end)        
+            :false -> []
+        end       
+        #IO.inspect state  
         {:reply, result, state}
     end    
 
     def handle_call({:getPostsForMention, mention}, _from, state) do          
-        tweetIdList = Kernel.get_in(state, ["userDetails", mention, "mentions"])             
-        result = Enum.reduce(tweetIdList, [], fn(x, acc)-> 
-            [msg, user, status] = Kernel.get_in(state, ["tweets", x])
-            msg = case status == 0 do
-                :true -> msg <>" postedBy " <> user
-                :false -> msg <>" retweetedBy " <> user
-            end
-            [msg | acc]
+        tweetIdList = Kernel.get_in(state, ["userDetails", mention, "mentions"]) 
+        result = case tweetIdList != nil and length(tweetIdList) > 0 do
+            :true -> Enum.reduce(tweetIdList, [], fn(x, acc)-> 
+                    [msg, user, status] = Kernel.get_in(state, ["tweets", x])
+                    msg = case status == 0 do
+                        :true -> msg <>" postedBy " <> user
+                        :false -> msg <>" retweetedBy " <> user
+                    end
+                    [msg | acc]
         end)        
+            :false -> []
+        end            
+        
         {:reply, result, state}
     end  
 
-    def handle_cast({:retweet, userName}, state) do          
-        reTweetId = Integer.to_string(:os.system_time(:millisecond))<> "_" <> userName        
-        state = case length(Kernel.get_in(state, ["userDetails", userName, "following"])) > 0 do
-            :true ->followId = Enum.random(Kernel.get_in(state, ["userDetails", userName, "following"]))
-                    case length(Kernel.get_in(state, ["userDetails", followId, "tweets"])) > 0 do
-                        :true -> tweetIdToBeRetweeted = Enum.random(Kernel.get_in(state, ["userDetails", followId, "tweets"]))
-                                [msg, _user, _status] = Kernel.get_in(state, ["tweets", tweetIdToBeRetweeted])
-                                state = Kernel.put_in(state, ["tweets", reTweetId], [msg, userName, 1])
-                                Kernel.put_in(state, ["userDetails", userName,"tweets"], [reTweetId | Kernel.get_in(state, ["userDetails", userName,"tweets"])])         
-                        :false -> state
-                    end                   
+    def handle_cast({:retweet, userName, followId}, state) do          
+        reTweetId = RandomGenerator.getClientId(8) <> "_" <> userName        
+        state = case length(Kernel.get_in(state, ["userDetails", followId, "tweets"])) > 0 do
+            :true -> tweetIdToBeRetweeted = Enum.random(Kernel.get_in(state, ["userDetails", followId, "tweets"]))                   
+                    [msg, _user, _status] = Kernel.get_in(state, ["tweets", tweetIdToBeRetweeted])
+                    state = Kernel.put_in(state, ["tweets", reTweetId], [msg, userName, 1])
+                    Kernel.put_in(state, ["userDetails", userName,"tweets"], [reTweetId | Kernel.get_in(state, ["userDetails", userName,"tweets"])])         
             :false -> state
-        end       
-
-        IO.inspect state
+        end                                      
+        #IO.inspect state
         {:noreply, state}
-    end      
-
-    def handle_call({:isUserRegistered, userName}, _from, state) do  
-        #IO.puts userName
-        result = Map.has_key?(Kernel.get_in(state, ["userTable"]), userName)
-        {:reply, result, state}
-    end
+    end       
 end
