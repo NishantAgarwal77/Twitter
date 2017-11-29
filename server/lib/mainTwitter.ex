@@ -21,7 +21,7 @@ defmodule MainTwitter do
         receive do
             {:startServer} -> TwitterServerSupervisor.start_link(serverIP)                       
                 #startTwitterServer(sender)                
-                :timer.sleep(50000)
+                IO.gets("")
                 send sender, {:serverTerminate} 
             {:terminateServer} -> send sender, {:serverTerminate}                                     
         end    
