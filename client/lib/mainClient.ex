@@ -7,7 +7,8 @@ defmodule MainClient do
         clientIp =  Enum.at(inputParsedVal, 1)
         serverIp =  Enum.at(inputParsedVal, 2) 
         TwitterClientSupervisor.start_link(numClients,clientIp,serverIp)  
-        :timer.sleep(20000)                               
+        #:timer.sleep(20000)                               
+        IO.gets("")
     end
 
 end
