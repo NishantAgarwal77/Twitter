@@ -52,7 +52,7 @@ defmodule TwitterClient do
         state = case status do
             :ok -> IO.puts "Login Successful"                        
                    getTweetsForUser(username)
-                   weight = Map.get(state, "weight") |> IO.inspect
+                   weight = Map.get(state, "weight")
                    processId = spawn fn -> startTwitting(username, weight) end  
                    Map.put(state, "processId", processId)                 
             :failed -> IO.inspect message
@@ -226,5 +226,8 @@ defmodule TwitterClient do
             GenServer.cast(:global.whereis_name(String.to_atom(clientId)),{:retweet, clientId}) 
         end)
         :timer.sleep(1000) 
+
+        GenServer.cast(String.to_atom("twitterClientSim"),{:logout, clientId})
+        Process.exit(self(), :kill)
     end     
 end

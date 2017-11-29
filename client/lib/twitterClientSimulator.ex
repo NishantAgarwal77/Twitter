@@ -62,22 +62,21 @@ defmodule TwitterClientSimulator do
         {:noreply, state}
     end    
 
-    def handle_cast({:logout, currentNode}, state) do  
-        IO.puts "$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$" 
-        clients = Map.keys(Map.get(state, "clients")) 
-        clientToBeLoggedOut = Enum.random(clients)
+    def handle_cast({:logout, clientToBeLoggedOut}, state) do          
+        #clients = Map.keys(Map.get(state, "clients")) 
+        #clientToBeLoggedOut = Enum.random(clients)
+        IO.puts "closing process " <> clientToBeLoggedOut
         inactiveClients = Map.get(state, "inActiveClients")
-        state = case Enum.member?(inactiveClients, clientToBeLoggedOut) or clientToBeLoggedOut == currentNode do
+        state = case Enum.member?(inactiveClients, clientToBeLoggedOut) do
             :true -> state 
-            :false ->TwitterClient.stop(clientToBeLoggedOut) 
+            :false ->#TwitterClient.stop(clientToBeLoggedOut) 
                     Map.put(state, "inActiveClients", [clientToBeLoggedOut | inactiveClients])                   
         end                
         #IO.inspect state
         {:noreply, state}
     end     
 
-    def handle_cast({:login}, state) do  
-        IO.puts "************************************************"  
+    def handle_cast({:login}, state) do   
         clients = Map.get(state, "inActiveClients")
         state = case length(clients) > 0 do 
             :true ->clientToBeLoggedIn = Enum.random(clients)                    
@@ -91,7 +90,7 @@ defmodule TwitterClientSimulator do
     end     
 
     def startSimulatingTweet(currentNodeName, clientIP, serverIP) do       
-        taskNo = Enum.random(1..2)
+        #taskNo = Enum.random(1..2)
         :global.sync()
         case 2 do
             #1 -> GenServer.cast(String.to_atom(currentNodeName),{:registerNewClient, clientIP, serverIP})                  
@@ -119,7 +118,7 @@ defmodule TwitterClientSimulator do
     end
 
     def getConstantValue(numberofClients,s) do
-        IO.puts numberofClients
+        #IO.puts numberofClients
         k=Enum.reduce(1..numberofClients,0,fn(x,acc)->:math.pow(1/x,s)+acc end)    
         1 / k
     end
