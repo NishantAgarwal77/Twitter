@@ -1,21 +1,13 @@
-# Twitter
+# Twitter Server
+Implementing Server for Twitter
 
-**TODO: Add description**
+## Team Members
+Nishant Agarwal (UFID:61991874) and Moulik Agarwal (UFID:3982674)
 
-## Installation
-
-If [available in Hex](https://hex.pm/docs/publish), the package can be installed
-by adding `twitter` to your list of dependencies in `mix.exs`:
-
-```elixir
-def deps do
-  [
-    {:twitter, "~> 0.1.0"}
-  ]
-end
+## Execution Steps
 ```
+1) mix escript.build
 
-Documentation can be generated with [ExDoc](https://github.com/elixir-lang/ex_doc)
-and published on [HexDocs](https://hexdocs.pm). Once published, the docs can
-be found at [https://hexdocs.pm/twitter](https://hexdocs.pm/twitter).
+2) ./twitter <Server's IP Address>
 
+```

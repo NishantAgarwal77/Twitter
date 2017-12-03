@@ -132,7 +132,7 @@ defmodule TwitterClientSimulator do
             weighted_followers = getZipfDist(numClients)
             GenServer.cast(String.to_atom("twitterClientSim"),{:createClients, numClients, clientIp, serverIp, weighted_followers})
         else
-            splitNumClients = round(numClients / 8)
+            splitNumClients = round(:math.floor(numClients / 8))
             weighted_followers = Enum.chunk_every(getZipfDist(7 * splitNumClients), splitNumClients) 
             for x <- 0..6 do
                 GenServer.cast(String.to_atom("twitterClientSim"),{:createClients, splitNumClients, clientIp, serverIp, Enum.at(weighted_followers, x)})
@@ -149,9 +149,13 @@ defmodule TwitterClientSimulator do
         s=1
         c=getConstantValue(numberofClients,s)
         Enum.map(1..numberofClients,fn(x)->:math.ceil((c * numberofClients)/:math.pow(x,s)) end)
+        #totalTweets=Enum.reduce(distList,10, fn(x,acc)-> x*acc end)
+        #IO.puts "total tweets=" <> Float.to_string(totalTweets)
+        #distList |> IO.inspect
     end
 
-    def getConstantValue(numberofClients,s) do        
+    def getConstantValue(numberofClients,s) do 
+        IO.puts  Integer.to_string(numberofClients)     
         k = Enum.reduce(1..numberofClients,0,fn(x,acc)->:math.pow(1/x,s)+acc end)    
         1 / k
     end 

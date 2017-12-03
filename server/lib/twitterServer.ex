@@ -108,7 +108,8 @@ defmodule TwitterServer do
         Regex.scan(~r/@([a-zA-Z0-9]*)/, tweetMessage) |> Enum.map(fn([_, mentions]) -> mentions end) |> Enum.filter(fn(x) -> x !="" end)
     end
 
-    def handle_call({:getPostsForUser, userName}, _from, state) do  
+    def handle_call({:getPostsForUser, userName}, _from, state) do
+        #IO.inspect state  
         userMap = Kernel.get_in(state, ["userDetails", userName])
         tweetIds = Map.get(userMap, "tweets")++Map.get(userMap, "mentions")
 
